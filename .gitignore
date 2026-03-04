@@ -1,0 +1,50 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.log
+*.db
+.env
+.venv/
+venv/
+
+# ========================
+# FastAPI / Backend
+# ========================
+backend/.env
+backend/__pycache__/
+
+# ========================
+# Node / Frontend
+# ========================
+node_modules/
+frontend/node_modules/
+.next/
+out/
+build/
+dist/
+frontend/.env.local
+frontend/.env.*.local
+
+# ========================
+# Docker
+# ========================
+*.pid
+*.seed
+*.pid.lock
+docker-compose.override.yml
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# IDE
+# ========================
+.vscode/
+.idea/
