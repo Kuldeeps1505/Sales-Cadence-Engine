@@ -1,17 +1,14 @@
-FROM node:20
+FROM node:20-alpine
 
 WORKDIR /app
 
-# copy only the inner project package files first for better caching
-COPY frontend/package*.json ./frontend/
+# Copy package files from my-app subdirectory
+COPY my-app/package*.json ./
 
-# install deps inside inner project
-RUN cd frontend && npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
-# copy the rest of the inner project
-COPY frontend ./frontend
-
-WORKDIR /app/frontend
+# Copy the entire Next.js project
+COPY my-app/ .
 
 EXPOSE 3000
 

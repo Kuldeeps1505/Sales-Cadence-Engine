@@ -16,4 +16,16 @@ class Settings(BaseSettings):
     MAX_CALL_RETRIES: int = 3
     RETRY_DELAY_SECONDS: int = 30
 
+       # Email (real SMTP)
+    SMTP_HOST: str       = "smtp.gmail.com"
+    SMTP_PORT: int       = 587
+    SMTP_USER: str       = ""
+    SMTP_PASSWORD: str   = ""
+    EMAIL_FROM_NAME: str = "Sales Cadence Engine"
+    EMAIL_FROM: str      = ""
+
+
+
 settings = Settings()
+
+

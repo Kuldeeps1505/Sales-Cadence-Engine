@@ -1,8 +1,7 @@
-
-
 services:
   postgres:
     image: postgres:15
+    container_name: cadence_postgres
     environment:
       POSTGRES_USER: cadence_user
       POSTGRES_PASSWORD: cadence_pass
@@ -14,15 +13,23 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cadence_user -d sales_cadence"]
       interval: 5s
-      retries: 5
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
+    container_name: cadence_redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build: ./backend
+    container_name: cadence_backend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
@@ -32,52 +39,127 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  # 3 SEPARATE WORKERS — this is the key learning point
-  # Each handles a different queue, can scale independently
+  # ── Stage 2: 5 separate workers, one per queue ──────────────────────────────
+  # Scale each independently based on load:
+  #   calls    → most CPU-heavy (simulated call duration)
+  #   emails   → I/O heavy (SMTP)
+  #   cadence  → orchestration (chain/chord launchers)
+  #   validation → fast parallel checks (group tasks)
+  #   reporting  → analytics (chord tasks)
+
+  worker_validation:
+    build: ./backend
+    container_name: cadence_worker_validation
+    command: celery -A app.workers.celery_app worker -Q validation -c 4 --loglevel=info -n validation@%h
+    env_file: ./backend/.env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   worker_calls:
     build: ./backend
+    container_name: cadence_worker_calls
     command: celery -A app.workers.celery_app worker -Q calls -c 4 --loglevel=info -n calls@%h
     env_file: ./backend/.env
     volumes:
       - ./backend:/app
-    depends_on: [redis, postgres]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   worker_emails:
     build: ./backend
+    container_name: cadence_worker_emails
     command: celery -A app.workers.celery_app worker -Q emails -c 2 --loglevel=info -n emails@%h
     env_file: ./backend/.env
     volumes:
       - ./backend:/app
-    depends_on: [redis, postgres]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   worker_cadence:
     build: ./backend
+    container_name: cadence_worker_cadence
     command: celery -A app.workers.celery_app worker -Q cadence -c 2 --loglevel=info -n cadence@%h
     env_file: ./backend/.env
     volumes:
       - ./backend:/app
-    depends_on: [redis, postgres]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  # Flower = visual Celery monitor. Visit http://localhost:5555
+  worker_reporting:
+    build: ./backend
+    container_name: cadence_worker_reporting
+    command: celery -A app.workers.celery_app worker -Q reporting -c 2 --loglevel=info -n reporting@%h
+    env_file: ./backend/.env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Flower — visit http://localhost:5555
   flower:
     build: ./backend
+    container_name: cadence_flower
     command: celery -A app.workers.celery_app flower --port=5555
     ports:
       - "5555:5555"
     env_file: ./backend/.env
-    depends_on: [redis]
+    depends_on:
+      redis:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
+    container_name: cadence_frontend
     ports:
       - "3000:3000"
     environment:
-      # browser must use localhost to reach backend container
       - NEXT_PUBLIC_API_URL=http://localhost:8000
-    volumes:
-      - ./frontend/frontend:/app/frontend
-      - /app/frontend/node_modules
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
